@@ -23,99 +23,20 @@
             border: 8px solid #1e293b;
         }
 
-        /* Natural Baseball Field Colors: Grass and Dirt */
-        .field-surface {
-            position: absolute;
-            inset: 0;
-            /* Outfield Grass */
-            background: radial-gradient(circle at 30% 50%, #15803d 0%, #166534 100%);
-            background-image: 
-                repeating-linear-gradient(90deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 30px, transparent 30px, transparent 60px);
-            /* Curvy Oval shape on the right (165ft side) */
-            clip-path: polygon(
-                5% 20%, 30% 5%, 70% 5%, 85% 10%, 93% 25%, 96% 50%, 93% 75%, 85% 90%, 70% 95%, 40% 95%, 5% 80%
-            );
-        }
-
-        /* Dirt Infield Texture - Classic Baseball Look */
-        .infield-dirt {
-            position: absolute;
-            width: 45%;
-            height: 45%;
-            left: 10%;
-            top: 50%;
-            transform: translateY(-50%);
-            background: radial-gradient(circle at 40% 50%, #92400e 0%, #78350f 100%);
-            border-radius: 40% 60% 60% 40% / 50% 50% 50% 50%;
-            opacity: 0.8;
-            z-index: 1;
-            pointer-events: none;
-            box-shadow: inset 0 0 40px rgba(0,0,0,0.3);
-        }
-
-        /* Boundary Line - matches the curvy clip-path */
-        .boundary-line-overlay {
-            position: absolute;
-            inset: 0;
-            background: #15803d;
-            border: 2px solid rgba(255,255,255,0.1);
-            /* Inset polygon to create a border effect */
-            clip-path: polygon(
-                5% 20%, 30% 5%, 70% 5%, 85% 10%, 93% 25%, 96% 50%, 93% 75%, 85% 90%, 70% 95%, 40% 95%, 5% 80%,
-                5.5% 80%, 40.5% 94%, 69.5% 94%, 84.5% 89%, 92% 74.5%, 95% 50%, 92% 25.5%, 84.5% 11%, 69.5% 6%, 30% 6%, 6% 21%, 5.5% 80%
-            );
-            z-index: 4;
-            pointer-events: none;
-        }
-
-        /* Pitch - schematic look */
-        .cricket-pitch-box {
-            position: absolute;
-            width: 18%;
-            height: 8%;
-            background: #fbbf24; 
-            border: 2px solid #92400e;
-            top: 50%;
-            left: 30%;
-            transform: translate(-50%, -50%);
-            z-index: 10;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
-            display: flex;
-            justify-content: space-between;
-            padding: 0 4px;
-        }
-
-        .pitch-crease-vertical {
-            width: 2px;
-            height: 100%;
-            background: white;
-        }
-
-        .stumps-dots {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            gap: 3px;
-        }
-        .stump-dot {
-            width: 4px;
-            height: 4px;
-            background: black;
-            border-radius: 50%;
-        }
-
         .dist-marker {
             position: absolute;
-            background: #0f172a;
+            background: rgba(15, 23, 42, 0.9);
             color: #f8fafc;
-            font-size: 9px;
+            font-size: 10px;
             font-weight: 900;
-            padding: 2px 6px;
+            padding: 3px 8px;
             border: 1px solid rgba(255,255,255,0.2);
             border-radius: 4px;
             transform: translate(-50%, -50%);
             z-index: 6;
             pointer-events: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(4px);
         }
 
         .custom-scrollbar::-webkit-scrollbar {
@@ -128,6 +49,13 @@
             background: #334155;
             border-radius: 10px;
         }
+
+        /* Ensure SVG fills the container */
+        .field-svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
     </style>
 <script type="importmap">
 {
@@ -135,7 +63,8 @@
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3"
+    "react": "https://esm.sh/react@^19.2.3",
+    "html2canvas": "https://esm.sh/html2canvas@1.4.1"
   }
 }
 </script>

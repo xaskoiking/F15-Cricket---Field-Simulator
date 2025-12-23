@@ -1,15 +1,9 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Download, Save, Trash2, ShieldCheck, ShieldAlert, ArrowRightLeft, UserCircle2 } from 'lucide-react';
+import { Download, Save, Trash2, ShieldCheck, ShieldAlert, ArrowRightLeft, UserCircle2, Image as ImageIcon } from 'lucide-react';
 import { Fielder, FieldSetup, ValidationResult } from './types';
+import html2canvas from 'html2canvas';
 
-/**
- * Pitch orientation for Schematic:
- * Horizontal orientation.
- * Batsman (W) is at the left end of the pitch box.
- * Bowler (B) is at the right end of the pitch box.
- * Axis: Y = 50%
- */
 const PITCH_Y = 50;
 
 const INITIAL_FIELDERS: Fielder[] = [
@@ -26,10 +20,11 @@ const INITIAL_FIELDERS: Fielder[] = [
 
 const App: React.FC = () => {
   const [fielders, setFielders] = useState<Fielder[]>(INITIAL_FIELDERS);
-  const [strategyName, setStrategyName] = useState('ACL Match Plan');
+  const [strategyName, setStrategyName] = useState("Captain's Game Plan 1");
   const [savedSetups, setSavedSetups] = useState<FieldSetup[]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [editingFielderId, setEditingFielderId] = useState<string | null>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
   const fieldRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -107,14 +102,36 @@ const App: React.FC = () => {
     localStorage.setItem('f15_sim_data', JSON.stringify(updated));
   };
 
-  const downloadSetup = (setup: FieldSetup) => {
-    const blob = new Blob([JSON.stringify(setup, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `F15_${setup.strategyName.replace(/\s+/g, '_')}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+  const downloadSetupImage = async (setup: FieldSetup) => {
+    // Load the setup first
+    loadSetup(setup);
+    
+    // Set capturing state to trigger visual feedback (outside captured area)
+    setIsCapturing(true);
+    setEditingFielderId(null);
+    
+    setTimeout(async () => {
+      if (!fieldRef.current) return;
+      try {
+        const canvas = await html2canvas(fieldRef.current, {
+          backgroundColor: '#020617',
+          scale: 3, 
+          logging: false,
+          useCORS: true,
+          allowTaint: true
+        });
+        
+        const dataUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = dataUrl;
+        link.download = `F15_${setup.strategyName.replace(/\s+/g, '_')}.png`;
+        link.click();
+      } catch (err) {
+        console.error("Capture failed", err);
+      } finally {
+        setIsCapturing(false);
+      }
+    }, 400); // Slight delay for rendering to finish
   };
 
   const validation = validateField();
@@ -126,13 +143,14 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col lg:flex-row h-screen w-full bg-slate-950 overflow-hidden text-slate-100">
       {/* Sidebar Panel */}
-      <div className="w-full lg:w-[320px] bg-slate-900 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-hidden shadow-2xl">
+      <div className="w-full lg:w-[320px] bg-slate-900 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-hidden shadow-2xl z-10">
         <div className="space-y-1">
-          <h1 className="text-xl font-black tracking-tight text-white uppercase italic leading-tight">F15 Field Simulator - Cricket</h1>
+          <h1 className="text-xl font-black tracking-tight text-white uppercase italic leading-tight">F15 Field Simulator</h1>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Captain's Command Center</p>
         </div>
 
         <div className="space-y-2">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Strategy Name</label>
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Active Plan Name</label>
           <input 
             value={strategyName}
             onChange={(e) => setStrategyName(e.target.value)}
@@ -155,8 +173,12 @@ const App: React.FC = () => {
 
         {/* Command Actions */}
         <div className="shrink-0 space-y-3">
-          <button onClick={saveSetup} disabled={!validation.isValid} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 rounded-xl font-bold text-[12px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-900/20">
-            <Save className="w-4 h-4" /> Save Strategy
+          <button 
+            onClick={saveSetup} 
+            disabled={!validation.isValid} 
+            className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-30 rounded-xl font-bold text-[12px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-900/20 border border-emerald-400/20"
+          >
+            <Save className="w-4 h-4" /> Save To Library
           </button>
         </div>
 
@@ -164,29 +186,42 @@ const App: React.FC = () => {
         <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
           <div className="flex items-center gap-2 mb-2">
             <UserCircle2 className="w-4 h-4 text-emerald-500" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Quick Guide</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Tactics Guide</span>
           </div>
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            Drag markers to reposition. Click a player's name on the field to edit it directly.
+            Drag players to set your field. Use the <ImageIcon className="inline w-3 h-3 mx-1"/> button in the library to export a high-res screenshot.
           </p>
         </div>
 
         {/* Library Mini-Shelf */}
-        <div className="shrink-0 space-y-3 mt-auto border-t border-slate-800 pt-5">
-          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Saved Plans</label>
-          <div className="grid grid-cols-1 gap-2 max-h-[180px] overflow-y-auto custom-scrollbar pr-1">
+        <div className="shrink-0 space-y-3 mt-auto border-t border-slate-800 pt-5 flex-1 flex flex-col min-h-0">
+          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">Saved Match Plans</label>
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-2">
             {savedSetups.length === 0 ? (
               <p className="text-slate-600 text-[9px] italic py-2 px-1">No saved plans yet.</p>
             ) : (
               savedSetups.map(setup => (
-                <div key={setup.id} className="group flex items-center justify-between p-2.5 bg-slate-800/40 hover:bg-slate-700/60 rounded-lg transition-all border border-slate-800">
+                <div key={setup.id} className="group flex items-center justify-between p-3 bg-slate-800/40 hover:bg-slate-700/60 rounded-lg transition-all border border-slate-800">
                   <div className="cursor-pointer overflow-hidden flex-1" onClick={() => loadSetup(setup)}>
-                    <p className="text-[10px] font-bold truncate leading-tight">{setup.strategyName}</p>
+                    <p className="text-[10px] font-bold truncate leading-tight group-hover:text-emerald-400">{setup.strategyName}</p>
                     <p className="text-[8px] text-slate-500 mt-0.5">{new Date(setup.timestamp).toLocaleDateString()}</p>
                   </div>
-                  <div className="flex gap-1">
-                    <button onClick={() => downloadSetup(setup)} className="p-1 hover:bg-emerald-500/20 text-slate-500 hover:text-emerald-400 transition-colors"><Download className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => deleteSetup(setup.id)} className="p-1 hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); downloadSetupImage(setup); }} 
+                      disabled={isCapturing}
+                      className="p-1.5 hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-400 transition-colors"
+                      title="Download Screenshot"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); deleteSetup(setup.id); }} 
+                      className="p-1.5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors"
+                      title="Delete Plan"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               ))
@@ -197,33 +232,74 @@ const App: React.FC = () => {
 
       {/* Main Field Visualization */}
       <div className="flex-1 relative bg-slate-950 flex items-center justify-center p-4 lg:p-10 overflow-hidden">
+        {/* The Field Container being captured */}
         <div 
           ref={fieldRef}
           onMouseMove={handleMouseMove}
           onMouseUp={handleDragEnd}
           onTouchMove={handleMouseMove}
           onTouchEnd={handleDragEnd}
-          className="field-container select-none"
+          className="field-container select-none relative"
           style={{ width: 'min(92vh, 92vw)' }}
           onClick={() => setEditingFielderId(null)}
         >
-          {/* Natural Colors: Grass and Dirt */}
-          <div className="field-surface" />
-          <div className="infield-dirt" />
-          <div className="boundary-line-overlay" />
+          {/* SVG Field Implementation for high-quality export */}
+          <svg className="field-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="grassGrad" cx="30%" cy="50%" r="70%">
+                <stop offset="0%" stopColor="#15803d" />
+                <stop offset="100%" stopColor="#166534" />
+              </radialGradient>
+              <pattern id="grassStripe" x="0" y="0" width="10" height="100" patternUnits="userSpaceOnUse">
+                <rect width="5" height="100" fill="rgba(255,255,255,0.03)" />
+              </pattern>
+              <radialGradient id="dirtGrad" cx="40%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#92400e" />
+                <stop offset="100%" stopColor="#78350f" />
+              </radialGradient>
+            </defs>
+            
+            {/* Outfield Grass */}
+            <path 
+              d="M 5 20 Q 30 5 70 5 Q 85 10 93 25 Q 96 50 93 75 Q 85 90 70 95 Q 40 95 5 80 Z" 
+              fill="url(#grassGrad)" 
+            />
+            <path 
+              d="M 5 20 Q 30 5 70 5 Q 85 10 93 25 Q 96 50 93 75 Q 85 90 70 95 Q 40 95 5 80 Z" 
+              fill="url(#grassStripe)" 
+            />
 
-          {/* Schematic Pitch */}
-          <div className="cricket-pitch-box">
-             <div className="pitch-crease-vertical" />
-             <div className="stumps-dots"><div className="stump-dot"/><div className="stump-dot"/><div className="stump-dot"/></div>
-             <div className="flex-1 flex items-center justify-center">
-                <span className="text-[9px] font-black text-amber-950 opacity-40 tracking-[0.4em]">PITCH</span>
-             </div>
-             <div className="stumps-dots"><div className="stump-dot"/><div className="stump-dot"/><div className="stump-dot"/></div>
-             <div className="pitch-crease-vertical" />
-          </div>
+            {/* Infield Dirt */}
+            <ellipse cx="32" cy="50" rx="22" ry="25" fill="url(#dirtGrad)" fillOpacity="0.8" />
+            
+            {/* Boundary Outline */}
+            <path 
+              d="M 5 20 Q 30 5 70 5 Q 85 10 93 25 Q 96 50 93 75 Q 85 90 70 95 Q 40 95 5 80 Z" 
+              fill="none" 
+              stroke="white" 
+              strokeWidth="0.4" 
+              strokeOpacity="0.4"
+            />
 
-          {/* Markers: 140 and 165 on off side */}
+            {/* Pitch */}
+            <rect x="21" y="46" width="18" height="8" fill="#fbbf24" stroke="#92400e" strokeWidth="0.3" rx="0.5" />
+            <line x1="21.5" y1="46" x2="21.5" y2="54" stroke="white" strokeWidth="0.2" />
+            <line x1="38.5" y1="46" x2="38.5" y2="54" stroke="white" strokeWidth="0.2" />
+            
+            {/* Pitch Text */}
+            <text x="30" y="50.8" fontSize="1.5" fontWeight="900" fill="#92400e" textAnchor="middle" opacity="0.3" letterSpacing="0.2">PITCH</text>
+            
+            {/* Stumps */}
+            <circle cx="21.5" cy="48.5" r="0.2" fill="black" />
+            <circle cx="21.5" cy="50" r="0.2" fill="black" />
+            <circle cx="21.5" cy="51.5" r="0.2" fill="black" />
+            
+            <circle cx="38.5" cy="48.5" r="0.2" fill="black" />
+            <circle cx="38.5" cy="50" r="0.2" fill="black" />
+            <circle cx="38.5" cy="51.5" r="0.2" fill="black" />
+          </svg>
+
+          {/* Markers */}
           <div className="dist-marker left-[40%] top-[94%]">140 ft</div>
           <div className="dist-marker left-[75%] top-[90%]">165 ft</div>
           
@@ -276,12 +352,28 @@ const App: React.FC = () => {
             </div>
           ))}
         </div>
+
+        {/* Capture Overlay (Moved OUTSIDE fieldRef so it's not captured in the image) */}
+        {isCapturing && (
+          <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-md z-[100] flex items-center justify-center">
+            <div className="bg-slate-900 border border-slate-700 p-8 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-300">
+              <div className="relative h-16 w-16">
+                <div className="absolute inset-0 border-4 border-emerald-500/20 rounded-full"></div>
+                <div className="absolute inset-0 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+              <div className="text-center space-y-1">
+                <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-400">Exporting Plan</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Generating High-Res Capture...</p>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Schematic Footer Reference */}
         <div className="absolute bottom-6 left-8 flex items-center gap-3 bg-slate-900/40 backdrop-blur-xl p-3 rounded-xl border border-white/5">
            <ArrowRightLeft className="w-4 h-4 text-emerald-500" />
            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-             Cricket Field Schematic • Direct Edit Active
+             F15 Schematic Engine • PNG Snapshots Enabled
            </div>
         </div>
       </div>
